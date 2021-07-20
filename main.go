@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -11,6 +12,42 @@ type Client struct {
 	id     string
 	socket *websocket.Conn
 	send   chan []byte
+}
+
+func (c *Client) write() {
+	defer func() {
+		c.socket.Close()
+	}()
+
+	for {
+		select {
+		case message, ok := <-c.send:
+			if !ok {
+				c.socket.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			c.socket.WriteMessage(websocket.TextMessage, message)
+		}
+	}
+}
+
+func (c *Client) read() {
+	defer func() {
+		manager.unregister <- c
+	}()
+
+	for {
+		_, message, err := c.socket.ReadMessage()
+		if err != nil {
+			manager.unregister <- c
+			c.socket.Close()
+			break
+		}
+
+		jsonMessage, _ := json.Marshal(&Message{Sender: c.id, Content: string(message)})
+		manager.broadcast <- jsonMessage
+	}
 }
 
 type ClientManager struct {
