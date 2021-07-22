@@ -116,8 +116,14 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id, err := uuid.NewV4()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	client := &Client{
-		id:     uuid.NewV4().String(),
+		id:     id.String(),
 		socket: conn,
 		send:   make(chan []byte),
 	}
